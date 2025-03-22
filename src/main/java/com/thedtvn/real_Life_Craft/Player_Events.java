@@ -15,14 +15,11 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 
 public class Player_Events implements Listener {
 
-    private static final Logger log = LoggerFactory.getLogger(Player_Events.class);
     public static Real_Life_Craft root_plugin;
 
     public static NamedTextColor[] barColos = {
@@ -59,7 +56,7 @@ public class Player_Events implements Listener {
         int bar_string_length = 24;
         int max_power = day * 5;
         int bar_power = power < max_power / bar_string_length ? 0 : (int) Math.ceil((double) power / max_power * bar_string_length);
-        ComponentBuilder<TextComponent, TextComponent.Builder> bar_str = Component.text("Energy: ").toBuilder();
+        ComponentBuilder<TextComponent, TextComponent.Builder> bar_str = Component.text("Energy: ", NamedTextColor.WHITE).toBuilder();
         for (int i = 0; i < bar_string_length; i++) {
             if (i > bar_power || bar_power == 0) {
                 NamedTextColor color = barColos[Math.min((i * 5) / bar_string_length, 4)];
@@ -70,20 +67,27 @@ public class Player_Events implements Listener {
                 bar_str.append(color_component);
             }
         }
+        int precent_power = (int) Math.ceil((double) power / max_power * 100);
+        Component color_component = Component.text(" "+(100 - precent_power)+"%", NamedTextColor.WHITE);
+        bar_str.append(color_component);
         return bar_str.build();
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        int player_sleep = getSleep(player);
+        player.setStatistic(Statistic.TIME_SINCE_REST, player_sleep);
         Runnable fn = () -> {
             int last_sleep = player.getStatistic(Statistic.TIME_SINCE_REST);
             int last_sleep_save = getSleep(player);
             if (last_sleep != 0 && last_sleep_save < last_sleep && last_sleep_save != 0) {
                 savePlayerSleep(player, last_sleep);
-            } else {
+            } else if (last_sleep_save != 0) {
                 last_sleep = last_sleep_save;
                 player.setStatistic(Statistic.TIME_SINCE_REST, last_sleep);
+            } else {
+                savePlayerSleep(player, last_sleep);
             }
             int effect_time = 20 * 4;
             int last_death = player.getStatistic(Statistic.TIME_SINCE_DEATH);
