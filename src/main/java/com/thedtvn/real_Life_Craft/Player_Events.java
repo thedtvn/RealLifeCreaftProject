@@ -9,14 +9,19 @@ import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Random;
 
 public class Player_Events implements Listener {
 
@@ -67,8 +72,8 @@ public class Player_Events implements Listener {
                 bar_str.append(color_component);
             }
         }
-        int precent_power = (int) Math.ceil((double) power / max_power * 100);
-        Component color_component = Component.text(" "+(100 - precent_power)+"%", NamedTextColor.WHITE);
+        double percent_power = 100.0 - (power * 100.0 / max_power);
+        Component color_component = Component.text(" " + String.format("%.2f", percent_power) + "%", NamedTextColor.WHITE);
         bar_str.append(color_component);
         return bar_str.build();
     }
@@ -89,9 +94,9 @@ public class Player_Events implements Listener {
             } else {
                 savePlayerSleep(player, last_sleep);
             }
-            int effect_time = 20 * 4;
             int last_death = player.getStatistic(Statistic.TIME_SINCE_DEATH);
             int lowest = Math.min(last_sleep, last_death);
+            int effect_time = 20 * 4;
             Component bar = createPowerBar(lowest);
             player.sendActionBar(bar);
             if (lowest > day) {
@@ -127,6 +132,54 @@ public class Player_Events implements Listener {
             task.cancel();
             player_task.remove(player);
         }
+    }
+
+    @EventHandler
+    public void onPlayerComsumeTaiLoc(PlayerItemConsumeEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = event.getItem();
+        if (item.getType() != Material.POTION) return;
+        if (!item.hasItemMeta()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (!meta.hasLore()) return;
+        List<Component> lore = meta.lore();
+        if (lore == null) return;
+        if (lore.size() < 2) return;
+        if (!lore.getFirst().equals(Component.text("Sting"))) return;
+
+        int last_sleep = player.getStatistic(Statistic.TIME_SINCE_REST);
+        int last_sleep_save = getSleep(player);
+        if (last_sleep != 0 && last_sleep_save < last_sleep && last_sleep_save != 0) {
+            savePlayerSleep(player, last_sleep);
+        } else if (last_sleep_save != 0) {
+            last_sleep = last_sleep_save;
+            player.setStatistic(Statistic.TIME_SINCE_REST, last_sleep);
+        } else {
+            savePlayerSleep(player, last_sleep);
+        }
+        int last_death = player.getStatistic(Statistic.TIME_SINCE_DEATH);
+        int lowest = Math.min(last_sleep, last_death);
+        int add_power = day / 3;
+        int new_power = lowest - add_power;
+        if (new_power < 0) {
+            new_power = 0;
+        }
+        savePlayerSleep(player, new_power);
+        player.setStatistic(Statistic.TIME_SINCE_REST, new_power);
+
+        // Remove the bad effects first ìf not to low
+        player.removePotionEffect(PotionEffectType.HUNGER);
+        player.removePotionEffect(PotionEffectType.SLOWNESS);
+        player.removePotionEffect(PotionEffectType.NAUSEA);
+        player.removePotionEffect(PotionEffectType.BLINDNESS);
+
+        // Add the good effects
+        int shot_time = 20 * 5;
+        int long_time = 20 * 10;
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, shot_time, 255));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, shot_time, 2));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, long_time, 2));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, long_time, 1));
     }
 
     @EventHandler

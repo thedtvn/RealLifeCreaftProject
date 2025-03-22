@@ -1,4 +1,4 @@
 name: Real_Life_Craft
-version: '1.0-SNAPSHOT'
+version: $version
 main: com.thedtvn.real_Life_Craft.Real_Life_Craft
 api-version: '1.21'
