@@ -110,7 +110,7 @@ public class Player_Events implements Listener {
                 int effect_level = lowest - (day * 4) * 51;
                 player.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, effect_time, effect_level));
             }
-            if (lowest > day * 5) {
+            if (lowest >= day * 5) {
                 player.damage(100);
             }
         };
