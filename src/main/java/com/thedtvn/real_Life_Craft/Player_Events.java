@@ -6,9 +6,12 @@ import net.kyori.adventure.text.ComponentBuilder;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.*;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -73,9 +76,26 @@ public class Player_Events implements Listener {
             }
         }
         double percent_power = 100.0 - (power * 100.0 / max_power);
-        Component color_component = Component.text(" " + String.format("%.2f", percent_power) + "%", NamedTextColor.WHITE);
+        Component color_component = Component.text(" " + String.format("%.1f", percent_power) + "%", NamedTextColor.WHITE);
         bar_str.append(color_component);
         return bar_str.build();
+    }
+
+    public int getLastSleep(Player player) {
+        int sleep_out;
+        int last_sleep = player.getStatistic(Statistic.TIME_SINCE_REST);
+        int last_sleep_save = getSleep(player);
+        if (last_sleep != 0 && last_sleep > last_sleep_save) {
+            sleep_out = last_sleep;
+            savePlayerSleep(player, sleep_out);
+        } else if (last_sleep_save == 0) {
+            sleep_out = last_sleep;
+            player.setStatistic(Statistic.TIME_SINCE_REST, sleep_out);
+        } else {
+            sleep_out = last_sleep_save;
+        }
+        int last_death = player.getStatistic(Statistic.TIME_SINCE_DEATH);
+        return Math.min(sleep_out, last_death);
     }
 
     @EventHandler
@@ -84,18 +104,7 @@ public class Player_Events implements Listener {
         int player_sleep = getSleep(player);
         player.setStatistic(Statistic.TIME_SINCE_REST, player_sleep);
         Runnable fn = () -> {
-            int last_sleep = player.getStatistic(Statistic.TIME_SINCE_REST);
-            int last_sleep_save = getSleep(player);
-            if (last_sleep != 0 && last_sleep_save < last_sleep && last_sleep_save != 0) {
-                savePlayerSleep(player, last_sleep);
-            } else if (last_sleep_save != 0) {
-                last_sleep = last_sleep_save;
-                player.setStatistic(Statistic.TIME_SINCE_REST, last_sleep);
-            } else {
-                savePlayerSleep(player, last_sleep);
-            }
-            int last_death = player.getStatistic(Statistic.TIME_SINCE_DEATH);
-            int lowest = Math.min(last_sleep, last_death);
+            int lowest = getLastSleep(player);
             int effect_time = 20 * 4;
             Component bar = createPowerBar(lowest);
             player.sendActionBar(bar);
@@ -135,6 +144,15 @@ public class Player_Events implements Listener {
     }
 
     @EventHandler
+    public void onPlayerRegainHealth(EntityRegainHealthEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (event.getRegainReason() != EntityRegainHealthEvent.RegainReason.SATIATED) return;
+        int new_power = (int) (getLastSleep(player) + (event.getAmount() * 20) * 10);
+        player.setStatistic(Statistic.TIME_SINCE_REST, new_power);
+        savePlayerSleep(player, new_power);
+    }
+
+    @EventHandler
     public void onPlayerComsumeTaiLoc(PlayerItemConsumeEvent event) {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
@@ -146,24 +164,16 @@ public class Player_Events implements Listener {
         if (lore == null) return;
         if (lore.size() < 2) return;
         if (!lore.getFirst().equals(Component.text("Sting"))) return;
-
-        int last_sleep = player.getStatistic(Statistic.TIME_SINCE_REST);
-        int last_sleep_save = getSleep(player);
-        if (last_sleep != 0 && last_sleep_save < last_sleep && last_sleep_save != 0) {
-            savePlayerSleep(player, last_sleep);
-        } else if (last_sleep_save != 0) {
-            last_sleep = last_sleep_save;
-            player.setStatistic(Statistic.TIME_SINCE_REST, last_sleep);
-        } else {
-            savePlayerSleep(player, last_sleep);
-        }
-        int last_death = player.getStatistic(Statistic.TIME_SINCE_DEATH);
-        int lowest = Math.min(last_sleep, last_death);
-        int add_power = day / 3;
+        int level = item.getEnchantmentLevel(Enchantment.EFFICIENCY);
+        int lowest = getLastSleep(player);
+        int add_power = day / 4 * level;
         int new_power = lowest - add_power;
         if (new_power < 0) {
+            double panalty = new_power * -1;
+            player.damage((panalty / day) * 10);
             new_power = 0;
         }
+
         savePlayerSleep(player, new_power);
         player.setStatistic(Statistic.TIME_SINCE_REST, new_power);
 
@@ -176,10 +186,15 @@ public class Player_Events implements Listener {
         // Add the good effects
         int shot_time = 20 * 5;
         int long_time = 20 * 10;
+        int power_speed = 1;
+        if (level > 1) {
+            shot_time += level * 2;
+            long_time += level * 5;
+            power_speed = level * 2;
+        }
         player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, shot_time, 255));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, shot_time, 2));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, long_time, 2));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, long_time, 1));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, long_time, power_speed));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, long_time, level));
     }
 
     @EventHandler

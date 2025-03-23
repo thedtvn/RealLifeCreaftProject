@@ -21,36 +21,46 @@ public final class Real_Life_Craft extends JavaPlugin {
         return getPlugin(Real_Life_Craft.class);
     }
 
-    public ShapedRecipe createRecipe(String color_string, NamedTextColor color, Material dye) {
-        NamespacedKey tailoc = new NamespacedKey(this, "tailoc_"+color.toString());
-        ItemStack tailoc_it = new ItemStack(Material.POTION);
-        tailoc_it.setAmount(1);
-        ItemMeta meta = tailoc_it.getItemMeta();
-        meta.displayName(Component.text("Sting "+color_string, color));
-        ArrayList<Component> lore = new ArrayList<>();
-        lore.add(Component.text("Sting"));
-        lore.add(Component.text("Nước tăng lực"));
-        meta.lore(lore);
-        meta.setUnbreakable(true);
-        meta.addEnchant(Enchantment.EFFICIENCY, 255, true);
-        tailoc_it.setItemMeta(meta);
+    String[][] recipe = {
+            {" s ", " B ", " d "},
+            {"   ", "sBs", " d "},
+            {" s ", "sBs", " d "},
+            {"s s", " B ", "sds"}
+    };
 
-        ShapedRecipe tailoc_bottoe = new ShapedRecipe(tailoc, tailoc_it);
-        tailoc_bottoe.shape("sss","sBs","sds");
-        tailoc_bottoe.setIngredient('d', dye);
-        tailoc_bottoe.setIngredient('s', Material.SUGAR);
-        tailoc_bottoe.setIngredient('B', Material.POTION);
-        return tailoc_bottoe;
+    public void createRecipe(String color_string, NamedTextColor color, Material dye) {
+        for (int i = 1; i <= 4; i++) {
+            NamespacedKey tailoc = new NamespacedKey(this, "tailoc_" + color.toString()+ "_" + i);
+            ItemStack tailoc_it = new ItemStack(Material.POTION);
+            tailoc_it.setAmount(1);
+            ItemMeta meta = tailoc_it.getItemMeta();
+            meta.displayName(Component.text("Sting " + color_string + " " + i, color));
+            ArrayList<Component> lore = new ArrayList<>();
+            lore.add(Component.text("Sting"));
+            lore.add(Component.text("Nước tăng lực"));
+            meta.lore(lore);
+            meta.addEnchant(Enchantment.EFFICIENCY, i, true);
+            tailoc_it.setItemMeta(meta);
+
+            ShapedRecipe tailoc_bottoe = new ShapedRecipe(tailoc, tailoc_it);
+            tailoc_bottoe.shape(recipe[i-1]);
+            tailoc_bottoe.setIngredient('d', dye);
+            ItemStack sugar = new ItemStack(Material.SUGAR);
+            sugar.setAmount(i);
+            tailoc_bottoe.setIngredient('s', sugar);
+            tailoc_bottoe.setIngredient('B', Material.POTION);
+            getServer().addRecipe(tailoc_bottoe);
+        }
+
     }
 
     @Override
     public void onEnable() {
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(new Player_Events(this), this);
-
-        getServer().addRecipe(createRecipe("Đỏ", NamedTextColor.RED, Material.RED_DYE));
-        getServer().addRecipe(createRecipe("Vàng", NamedTextColor.YELLOW, Material.YELLOW_DYE));
-        getServer().addRecipe(createRecipe("Xanh", NamedTextColor.BLUE, Material.BLUE_DYE));
+        createRecipe("Đỏ", NamedTextColor.RED, Material.RED_DYE);
+        createRecipe("Vàng", NamedTextColor.YELLOW, Material.YELLOW_DYE);
+        createRecipe("Xanh", NamedTextColor.BLUE, Material.BLUE_DYE);
     }
 
     @Override
